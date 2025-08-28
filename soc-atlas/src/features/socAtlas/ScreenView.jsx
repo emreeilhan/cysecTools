@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import CopyButton from "./components/CopyButton";
 import CodeRow from "./components/CodeRow";
 import CyberGrid from "./components/CyberGrid";
 import CommandsSection from "./components/CardView/CommandsSection";
 import GuidedRecipe from "./components/CardView/GuidedRecipe";
+import HeroAnimated from "./components/HeroAnimated";
 import { TOOLS } from "./data";
 import {
   ShieldCheck,
@@ -35,6 +36,14 @@ export default function SOCToolsAtlas() {
   const [lang, setLang] = useState("tr");
   const t = useMemo(() => (key) => I18N[lang][key] ?? key, [lang]);
 
+  // ------------------ Appear animation control ------------------
+  const prefersReduced = useReducedMotion?.() ?? false
+  const [appeared, setAppeared] = useState(false)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setAppeared(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
+
   // ------------------ Theme -----------------
   const [dark, setDark] = useState(() => {
     if (typeof window === "undefined") return true;
@@ -51,6 +60,7 @@ export default function SOCToolsAtlas() {
   // ------------------ Search/Filter ---------
   const [query, setQuery] = useState("");
   const [activeTags, setActiveTags] = useState(new Set());
+  const [activeCategory, setActiveCategory] = useState('all'); // Purpose: category chip filter
   const toggleTag = (tag) => {
     const next = new Set(activeTags);
     if (next.has(tag)) next.delete(tag);
@@ -66,6 +76,18 @@ export default function SOCToolsAtlas() {
 
   // ------------------ Filtered list ---------
   const filtered = useMemo(() => {
+    // Purpose: map UI category chips to predicate over tools
+    const categoryPass = (tool) => {
+      if (activeCategory === 'all') return true;
+      if (activeCategory === 'network') return tool.category === 'Network';
+      if (activeCategory === 'idsips') return tool.category === 'IDS/IPS';
+      if (activeCategory === 'siem') return tool.category === 'Rules & Detection' || tool.tags?.includes('logs') || tool.tags?.includes('siem');
+      if (activeCategory === 'endpoint') return tool.category === 'Windows' || tool.tags?.includes('endpoint');
+      if (activeCategory === 'malware') return tool.category === 'Malware/DFIR' && (tool.tags?.includes('malware') || tool.tags?.includes('static'));
+      if (activeCategory === 'dfir') return tool.category === 'Malware/DFIR' || tool.tags?.includes('forensics') || tool.tags?.includes('memory');
+      return true;
+    };
+
     return TOOLS.filter((tool) => {
       const q = query.toLowerCase().trim();
       const nameHit = tool.name[lang].toLowerCase().includes(q);
@@ -73,7 +95,8 @@ export default function SOCToolsAtlas() {
       const tagHit = tool.tags.some((tg) => tg.toLowerCase().includes(q));
       const searchOk = q === "" || nameHit || descHit || tagHit;
       const tagsOk = activeTags.size === 0 || tool.tags.some((tg) => activeTags.has(tg));
-      return searchOk && tagsOk;
+      const catOk = categoryPass(tool);
+      return searchOk && tagsOk && catOk;
     });
   }, [query, activeTags, lang]);
 
@@ -82,27 +105,45 @@ export default function SOCToolsAtlas() {
       {/* Subtle cyber grid background */}
       <CyberGrid />
 
-      <header className="sticky top-0 z-40 backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:supports-[backdrop-filter]:bg-black/30 border-b border-neutral-200/60 dark:border-neutral-800/60">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="size-9 rounded-xl bg-gradient-to-br from-emerald-400 via-teal-400 to-cyan-400 shadow ring-1 ring-emerald-500/30 grid place-items-center">
-              <ShieldCheck className="size-5 text-emerald-950/90" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">SOC Atlas</h1>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("tagline")}</p>
-            </div>
-          </div>
+      <motion.header
+        className="sticky top-0 z-40 mx-[-1rem] sm:mx-[-1.25rem]"
+        initial={prefersReduced ? false : { y: -16, opacity: 0 }}
+        animate={appeared ? { y: 0, opacity: 1 } : {}}
+        transition={{ type: 'spring', stiffness: 220, damping: 26 }}
+      >
+        <div className="relative">
+          {/* Glass/gradient bar to match hero full‑bleed */}
+          <div className="backdrop-blur supports-[backdrop-filter]:bg-white/40 dark:supports-[backdrop-filter]:bg-black/30 border-b border-white/50 dark:border-white/10 shadow-[0_1px_0_0_rgba(255,255,255,0.4)_inset]">
+            <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <div className="size-9 rounded-xl bg-gradient-to-br from-emerald-400 via-teal-400 to-cyan-400 shadow ring-1 ring-emerald-500/30 grid place-items-center">
+                  <ShieldCheck className="size-5 text-emerald-950/90" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold tracking-tight">SOC Atlas</h1>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("tagline")}</p>
+                </div>
+              </div>
 
-          <div className="ml-auto flex items-center gap-2">
-            <LangToggle lang={lang} setLang={setLang} />
-            <ThemeToggle dark={dark} setDark={setDark} />
+              <div className="ml-auto flex items-center gap-2">
+                <LangToggle lang={lang} setLang={setLang} />
+                <ThemeToggle dark={dark} setDark={setDark} />
+              </div>
+            </div>
           </div>
+          {/* Subtle neon underline to blend with hero */}
+          <div className="pointer-events-none h-[2px] w-full bg-gradient-to-r from-transparent via-emerald-400/40 to-transparent" aria-hidden />
         </div>
-      </header>
+      </motion.header>
 
       <main className="max-w-6xl mx-auto px-4 pb-24">
-        <Hero t={t} />
+        <motion.div
+          initial={prefersReduced ? false : { y: 16, opacity: 0 }}
+          animate={appeared ? { y: 0, opacity: 1 } : {}}
+          transition={{ type: 'spring', stiffness: 220, damping: 26 }}
+        >
+          <HeroAnimated title={t('hero_title')} subtitle={t('hero_sub')} />
+        </motion.div>
 
         {/* Controls */}
         <div className="mt-6 grid gap-3 sm:grid-cols-[1fr,auto] items-start">
@@ -117,6 +158,35 @@ export default function SOCToolsAtlas() {
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1 text-sm text-neutral-500 dark:text-neutral-400"><Filter className="size-4" /> {t("filter_by_tags")}</span>
+          </div>
+        </div>
+
+        {/* Category chips row (Atlas-like) */}
+        <div className="mt-4">
+          <div className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 mb-2">{t('categories')}</div>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { id: 'all', label: t('cat_all') },
+              { id: 'network', label: t('cat_network') },
+              { id: 'idsips', label: t('cat_idsips') },
+              { id: 'siem', label: t('cat_siem') },
+              { id: 'endpoint', label: t('cat_endpoint') },
+              { id: 'malware', label: t('cat_malware') },
+              { id: 'dfir', label: t('cat_dfir') },
+            ].map((c) => (
+              <button
+                key={c.id}
+                onClick={() => setActiveCategory(c.id)}
+                className={
+                  'inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm transition ' +
+                  (activeCategory === c.id
+                    ? 'border-emerald-400/60 bg-emerald-400/10 text-emerald-600'
+                    : 'border-neutral-200 dark:border-neutral-800 hover:border-emerald-400/60')
+                }
+              >
+                {c.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -198,12 +268,8 @@ function Hero({ t }) {
     <section className="pt-10">
       <div className="rounded-2xl p-6 md:p-10 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-cyan-500/10 border border-emerald-400/30 dark:border-emerald-500/20 shadow-sm relative overflow-hidden">
         <div className="relative z-10">
-          <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight">
-            {t("hero_title")} <span className="bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-300">SOC</span> Atlas
-          </h2>
-          <p className="mt-2 text-neutral-600 dark:text-neutral-300 max-w-2xl">
-            {t("hero_sub")}
-          </p>
+          <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight">{t('hero_title')}</h2>
+          <p className="mt-2 text-neutral-600 dark:text-neutral-300 max-w-3xl">{t('hero_sub')}</p>
         </div>
         <div className="absolute -right-10 -top-10 size-[280px] rounded-full bg-emerald-400/10 blur-3xl" />
         <div className="absolute -left-16 -bottom-16 size-[320px] rounded-full bg-cyan-400/10 blur-3xl" />
@@ -352,10 +418,18 @@ function SectionTitle({ children }) {
 const I18N = {
   en: {
     tagline: "Tap to learn • silky expand • hands‑on examples",
-    hero_title: "The smoothest way to learn",
-    hero_sub: "A curated, bilingual map of SOC analyst tools. Search, filter, tap a card, and get real commands plus downloadable sample files.",
+    hero_title: "Learn tools with goals, scenarios, commands and samples.",
+    hero_sub: "Explore key tools in the spirit of THM: purpose‑first, scenario‑driven, with copy‑ready commands and sample files.",
     search_placeholder: "Search tools, tags, commands…",
     filter_by_tags: "Filter by tags",
+    categories: "CATEGORIES",
+    cat_all: "All",
+    cat_network: "Network",
+    cat_idsips: "IDS/IPS",
+    cat_siem: "SIEM & Logs",
+    cat_endpoint: "Endpoint",
+    cat_malware: "Malware Analysis",
+    cat_dfir: "DFIR",
     no_results: "No results. Try removing filters or changing the query.",
     what_is_it: "What is it?",
     use_cases: "Use cases",
@@ -373,10 +447,18 @@ const I18N = {
   },
   tr: {
     tagline: "Dokun ve öğren • yumuşak açılır • uygulamalı örnekler",
-    hero_title: "Öğrenmenin en akıcı yolu",
-    hero_sub: "SOC analist araçlarının iki dilli haritası. Ara, filtrele, karta dokun; gerçek komutları ve indirilebilir örnek dosyaları al.",
+    hero_title: "THM çizgisindeki başlıca araçları; amaç, durumlar, komutlar ve örnek dosyalarla pratik odaklı öğren.",
+    hero_sub: "Kategorilere göz at, filtrele ve kartları açarak kopyalanabilir komutlar ile örnek dosyaları indir.",
     search_placeholder: "Araç, etiket, komut ara…",
     filter_by_tags: "Etikete göre filtrele",
+    categories: "KATEGORİLER",
+    cat_all: "Hepsi",
+    cat_network: "Ağ Analizi",
+    cat_idsips: "IDS/IPS",
+    cat_siem: "SIEM & Günlük",
+    cat_endpoint: "Uç Nokta",
+    cat_malware: "Zararlı Analizi",
+    cat_dfir: "DFIR",
     no_results: "Sonuç yok. Filtreleri kaldırmayı veya aramayı değiştirmeyi dene.",
     what_is_it: "Nedir?",
     use_cases: "Kullanım senaryoları",

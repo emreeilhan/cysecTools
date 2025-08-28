@@ -32,6 +32,30 @@ export const NETWORK_TOOLS = [
     ],
   },
   {
+    id: 'nmap',
+    icon: ShieldCheck,
+    name: { en: 'Nmap', tr: 'Nmap' },
+    category: 'Network',
+    tags: ['scanner', 'ports', 'service'],
+    summary: { en: 'Network scanner and service enumerator.', tr: 'Ağ tarayıcı ve servis belirleyici.' },
+    details: { en: 'Discovers hosts, open ports, and services; NSE for scripts.', tr: 'Host, açık port ve servis bulur; NSE ile script desteği.' },
+    usecases: { en: ['Lab recon', 'Baseline mapping'], tr: ['Lab keşif', 'Baz haritalama'] },
+    examplesText: { en: ['Top ports, service detection, vuln scripts'], tr: ['Popüler portlar, servis tespiti, zafiyet scriptleri'] },
+    commands: [
+      { title: 'Common scans', entries: [
+        { label: 'Top 1000 TCP', cmd: 'nmap -Pn -sS -T4 target' },
+        { label: 'Service + versions', cmd: 'nmap -sV -sC -O target' },
+        { label: 'Scripted vuln check', cmd: 'nmap --script vuln target' },
+      ]},
+    ],
+    recipe: [
+      // Purpose: Quick recon sequence with safe defaults
+      { title: { en: 'Discover scope', tr: 'Kapsamı keşfet' }, description: { en: 'Ping sweep or ARP to find live hosts (lab).', tr: 'Canlı hostları bulmak için ping/ARP taraması (lab).'}, command: 'nmap -sn 10.10.0.0/24' },
+      { title: { en: 'Top ports quick scan', tr: 'Popüler portları hızlı tara' }, description: { en: 'Scan common TCP ports to map services.', tr: 'Servisleri haritalamak için yaygın TCP portlarını tara.'}, command: 'nmap -Pn -sS -T4 target' },
+      { title: { en: 'Version and scripts', tr: 'Versiyon ve scriptler' }, description: { en: 'Probe service versions and run default scripts.', tr: 'Servis versiyonlarını yokla, varsayılan scriptleri çalıştır.'}, command: 'nmap -sV -sC target' }
+    ],
+  },
+  {
     id: 'zeek',
     icon: ShieldCheck,
     name: { en: 'Zeek', tr: 'Zeek' },
@@ -51,6 +75,12 @@ export const NETWORK_TOOLS = [
         { label: 'DNS queries', cmd: 'cat dns.log | zeek-cut query qtype_name' },
       ]},
     ],
+    recipe: [
+      // Purpose: Turn PCAP to logs and triage quickly
+      { title: { en: 'Generate logs', tr: 'Logları üret' }, description: { en: 'Convert PCAP into Zeek logs.', tr: "PCAP'i Zeek loglarına dönüştür."}, command: 'zeek -Cr capture.pcap' },
+      { title: { en: 'Pivot HTTP/DNS', tr: 'HTTP/DNS pivotu' }, description: { en: 'Review http.log and dns.log for rare hosts/URIs.', tr: 'http.log ve dns.log içinde nadir host/URI ara.'}, command: 'cat http.log | zeek-cut host uri' },
+      { title: { en: 'Extract IOCs', tr: 'IOC çıkar' }, description: { en: 'Collect suspicious domains/IPs from logs.', tr: 'Şüpheli domain/IP değerlerini topla.'}, command: 'cat dns.log | zeek-cut query | sort -u' }
+    ],
   },
   {
     id: 'tcpdump',
@@ -67,6 +97,11 @@ export const NETWORK_TOOLS = [
         { label: 'SYN packets on 80', cmd: "tcpdump -nn -r capture.pcap 'tcp port 80 and (tcp[tcpflags] & tcp-syn != 0)'" },
         { label: 'Only DNS', cmd: "tcpdump -nn -r capture.pcap 'udp port 53'" },
       ]},
+    ],
+    recipe: [
+      // Purpose: Minimal read/triage loop
+      { title: { en: 'List top talkers', tr: 'En çok konuşanları listele' }, description: { en: 'Summarize by endpoints/ports to spot anomalies.', tr: 'Uç noktalar/portlar bazında özetle, anomali ara.'}, command: "tcpdump -nn -r capture.pcap | awk '{print $3,$5}' | cut -d'.' -f1-4 | sort | uniq -c | sort -nr | head" },
+      { title: { en: 'Focus protocol', tr: 'Protokole odaklan' }, description: { en: 'Filter to DNS/HTTP per hypothesis.', tr: 'Hipoteze göre DNS/HTTP filtrele.'}, command: "tcpdump -nn -r capture.pcap 'udp port 53'" }
     ],
   },
 ]
