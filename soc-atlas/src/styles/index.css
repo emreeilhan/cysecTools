@@ -1,4 +1,5 @@
-/* Purpose: global Tailwind layers */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Purpose: global Tailwind layers (Tailwind v4 syntax) */
+@import "tailwindcss";
+
+/* TODO: If you need to define custom theme tokens or utilities in v4,
+   use the new @theme/@utility APIs in separate, modular CSS files. */
