@@ -1,0 +1,4 @@
+/* Purpose: global Tailwind layers */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
